@@ -60,11 +60,21 @@ function record(ev) {
   ev.visit = visit;
   events.push(ev);
   $('log').textContent = JSON.stringify(events, null, 1);
+  // 同一個瀏覽器設定檔、同一個網址開的分頁都讀得到，部署在 https 上時 Claude 用這份讀結果
+  try {
+    localStorage.setItem(`smoke-log-${visit}`, JSON.stringify({ browser, selftest: !!window.__selftest, events }));
+  } catch {}
   void send();
 }
+const LOCAL = ['127.0.0.1', 'localhost'].includes(location.hostname);
 async function send() {
+  if (!LOCAL) {
+    $('sent').textContent = `結果已存在這個瀏覽器裡（第 ${visit} 次開啟，${events.length} 筆），不會上傳。`;
+    return;
+  }
   try {
-    await fetch('/report', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ browser, visit, events, selftest: !!window.__selftest }) });
+    const r = await fetch('/report', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ browser, visit, events, selftest: !!window.__selftest }) });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
     $('sent').textContent = `已把結果送回測試伺服器（第 ${visit} 次開啟，${events.length} 筆）。`;
   } catch (e) {
     $('sent').textContent = `結果沒送出：${err(e)}`;
