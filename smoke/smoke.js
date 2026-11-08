@@ -143,7 +143,7 @@ function clickText(ev) {
 function explain(ev, what) {
   const sec = (ev.ms / 1000).toFixed(1);
   const next = what.includes('資料夾視窗') ? '下一步：按下面的對照按鈕；若開檔視窗也一樣秒失敗，就是整個原生選取視窗被擋。' : '';
-  if (ev.errorName === 'AbortError' && ev.hiddenAtMs !== undefined && ev.hiddenAtMs <= ev.ms) return `${what}打開後第 ${(ev.hiddenAtMs / 1000).toFixed(1)} 秒，Chrome 把這個頁面判定為「看不見」，就自動取消了選取（不是你按的取消，也不是頁面逾時）。這在部分電腦上會發生，例如選取視窗太大蓋住了瀏覽器。請改用下面的「把資料夾拖進來」，或把選取視窗拉小一點再試。`;
+  if (ev.errorName === 'AbortError' && ev.hiddenAtMs !== undefined && ev.hiddenAtMs <= ev.ms) return `${what}打開後第 ${(ev.hiddenAtMs / 1000).toFixed(1)} 秒，Chrome 把這個頁面判定為「看不見」，就自動取消了選取（不是你按的取消，也不是頁面逾時）。這是 Chrome 在部分電腦上的行為（無痕視窗也一樣；同一台電腦用 Edge 不會發生），不是你的設定有問題。請改用下面的「把資料夾拖進來」，或改用 Edge。`;
   if (ev.noDialog) return `按下 ${sec} 秒後頁面仍有焦點、也沒有任何回應，${what}應該根本沒出現（被瀏覽器或掛在上面的工具擋掉）。`;
   if (ev.errorName === 'AbortError' && ev.ms < FAST_MS) return `只過了 ${ev.ms} 毫秒就被取消，${what}應該根本沒出現：是瀏覽器或掛在瀏覽器上的工具（例如自動化或遠端操控的擴充功能）直接取消。${next}`;
   if (ev.errorName === 'AbortError') return `按下後 ${sec} 秒 Chrome 回報取消（這個時間是實測的，頁面本身沒有任何逾時）。可能是：按了取消；選到 Chrome 封鎖的資料夾（例如「下載」「文件」「桌面」本身或系統資料夾）；在「允許編輯」時沒按允許；或選好後被 Chrome 擋下。請看下面的「經過」。`;
@@ -159,7 +159,7 @@ function note(key, ev) {
   const dirs = ['local', 'other', 'plain'].map((k) => latest[k]).filter(Boolean);
   const files = ['open', 'save'].map((k) => latest[k]).filter(Boolean);
   const lines = [];
-  if (Object.values(latest).some((r) => r.hidden)) lines.push('選取視窗開著時，Chrome 把這個頁面判定為「看不見」並自動取消了選取。請改用下面的「把資料夾拖進來」，或把選取視窗拉小一點再試。');
+  if (Object.values(latest).some((r) => r.hidden)) lines.push('選取視窗開著時，Chrome 把這個頁面判定為「看不見」並自動取消了選取。這是 Chrome 在部分電腦上的行為，不是設定問題。請改用下面的「把資料夾拖進來」，或改用 Edge。');
   if (dirs.some((r) => r.ok)) lines.push('選資料夾可以用。');
   else if (dirs.length) {
     const fast = dirs.every((r) => r.fast);
@@ -391,7 +391,7 @@ function earlierHiddenCancel() {
   $('ua').textContent = browser;
   $('env').textContent = envText();
   setupDrop();
-  if (earlierHiddenCancel()) $('tip').textContent = '提醒：這個瀏覽器之前選資料夾時，選取視窗被 Chrome 自動取消過。建議直接用下面的「把資料夾拖進來」。';
+  if (earlierHiddenCancel()) $('tip').textContent = '提醒：這個瀏覽器之前選資料夾時，選取視窗被 Chrome 自動取消過。建議直接用下面的「把資料夾拖進來」，或改用 Edge。';
   for (const b of document.querySelectorAll('button[data-cmp]')) b.addEventListener('click', () => void compare(b.dataset.cmp));
   if (!window.showDirectoryPicker) {
     record({ step: 'support', error: '沒有 showDirectoryPicker', env: ENV });
