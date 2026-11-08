@@ -15,6 +15,9 @@
   #verdict:empty { display: none; }
   pre { background: #f5f5f5; padding: 8px; white-space: pre-wrap; font-size: 13px; max-height: 420px; overflow: auto; }
   #sent, #env { color: #555; }
+  #tip:empty { display: none; }
+  .dropzone { border: 2px dashed #888; padding: 28px 12px; text-align: center; font-size: 17px; margin: 8px 0; }
+  .dropzone.over { border-color: #0a7a2f; background: #eefaf1; }
 </style>
 </head>
 <body>
@@ -22,6 +25,12 @@
 <p>這頁只會在你選的資料夾裡建一個「調課小幫手煙霧測試」子資料夾，放兩個測試檔；不讀、不改其他檔案，也不會上傳任何內容（結果只留在這台電腦：本機測試伺服器，或這個瀏覽器自己的儲存區）。</p>
 <p>瀏覽器：<b id="ua"></b></p>
 <p id="env"></p>
+
+<p id="tip" class="bad"></p>
+
+<h2>把資料夾拖進來（不經過選取視窗）</h2>
+<div id="drop" class="dropzone">從檔案總管把一個資料夾拖到這個框裡放開</div>
+<div class="row"><span id="st-drop"></span></div>
 
 <h2>選資料夾</h2>
 <div class="row"><button data-loc="local">選本機資料夾並讀寫</button> <span id="st-local"></span></div>
@@ -43,6 +52,6 @@
 
 <p id="sent"></p>
 <details><summary>詳細結果</summary><pre id="log"></pre></details>
-<script type="module" src="smoke.js?v=5"></script>
+<script type="module" src="smoke.js?v=6"></script>
 </body>
 </html>

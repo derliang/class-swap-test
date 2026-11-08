@@ -4,7 +4,7 @@
 // 「關掉再開」時用 IndexedDB 取回上次的資料夾，只是為了記錄實測看到的授權行為（不是正式設計）。
 
 const SUB = '調課小幫手煙霧測試';
-const LOCS = { local: '本機資料夾', other: '另一個資料夾', plain: '最簡版選資料夾' };
+const LOCS = { local: '本機資料夾', other: '另一個資料夾', plain: '最簡版選資料夾', drop: '拖曳進來的資料夾' };
 const CMPS = { open: '開檔視窗', save: '存檔視窗', input: '舊式選資料夾' };
 const FAST_MS = 500; // 比這更快就失敗：視窗應該根本沒出現（人不可能這麼快按取消）
 const $ = (id) => document.getElementById(id);
@@ -143,7 +143,7 @@ function clickText(ev) {
 function explain(ev, what) {
   const sec = (ev.ms / 1000).toFixed(1);
   const next = what.includes('資料夾視窗') ? '下一步：按下面的對照按鈕；若開檔視窗也一樣秒失敗，就是整個原生選取視窗被擋。' : '';
-  if (ev.errorName === 'AbortError' && ev.hiddenAtMs !== undefined && ev.hiddenAtMs <= ev.ms) return `${what}打開後第 ${(ev.hiddenAtMs / 1000).toFixed(1)} 秒，這個頁面被判定為「看不見」，接著 Chrome 就自動取消了選取（不是你按的取消）。最常見的原因是${what}是最大化的，把整個 Chrome 視窗蓋住。下一步：${what}出現時，先按它右上角的「向下還原」把它縮小（或按 Win＋↓），再選資料夾；Windows 會記住縮小後的大小，之後就不會再發生。`;
+  if (ev.errorName === 'AbortError' && ev.hiddenAtMs !== undefined && ev.hiddenAtMs <= ev.ms) return `${what}打開後第 ${(ev.hiddenAtMs / 1000).toFixed(1)} 秒，Chrome 把這個頁面判定為「看不見」，就自動取消了選取（不是你按的取消，也不是頁面逾時）。這在部分電腦上會發生，例如選取視窗太大蓋住了瀏覽器。請改用下面的「把資料夾拖進來」，或把選取視窗拉小一點再試。`;
   if (ev.noDialog) return `按下 ${sec} 秒後頁面仍有焦點、也沒有任何回應，${what}應該根本沒出現（被瀏覽器或掛在上面的工具擋掉）。`;
   if (ev.errorName === 'AbortError' && ev.ms < FAST_MS) return `只過了 ${ev.ms} 毫秒就被取消，${what}應該根本沒出現：是瀏覽器或掛在瀏覽器上的工具（例如自動化或遠端操控的擴充功能）直接取消。${next}`;
   if (ev.errorName === 'AbortError') return `按下後 ${sec} 秒 Chrome 回報取消（這個時間是實測的，頁面本身沒有任何逾時）。可能是：按了取消；選到 Chrome 封鎖的資料夾（例如「下載」「文件」「桌面」本身或系統資料夾）；在「允許編輯」時沒按允許；或選好後被 Chrome 擋下。請看下面的「經過」。`;
@@ -159,7 +159,7 @@ function note(key, ev) {
   const dirs = ['local', 'other', 'plain'].map((k) => latest[k]).filter(Boolean);
   const files = ['open', 'save'].map((k) => latest[k]).filter(Boolean);
   const lines = [];
-  if (Object.values(latest).some((r) => r.hidden)) lines.push('有選取視窗是在這個頁面被判定「看不見」之後才被取消：通常是選取視窗最大化、把 Chrome 整個蓋住，Chrome 就自動取消。請在選取視窗出現時先把它縮小（向下還原或 Win＋↓）再選。');
+  if (Object.values(latest).some((r) => r.hidden)) lines.push('選取視窗開著時，Chrome 把這個頁面判定為「看不見」並自動取消了選取。請改用下面的「把資料夾拖進來」，或把選取視窗拉小一點再試。');
   if (dirs.some((r) => r.ok)) lines.push('選資料夾可以用。');
   else if (dirs.length) {
     const fast = dirs.every((r) => r.fast);
@@ -192,12 +192,23 @@ async function pickAndTest(loc) {
     return;
   }
   note(loc, ev);
+  await useDir(loc, dir, ev);
+}
+
+// 拿到資料夾 handle 之後：確認寫入授權，再做讀寫與原子性測試（選取視窗與拖曳共用）
+async function useDir(loc, dir, ev) {
   ev.permissionAfterPick = await dir.queryPermission({ mode: 'readwrite' });
   if (ev.permissionAfterPick !== 'granted') {
+    const t = performance.now();
     ev.requestResult = await dir.requestPermission({ mode: 'readwrite' }).catch((e) => err(e));
+    ev.requestMs = Math.round(performance.now() - t);
     if (ev.requestResult !== 'granted') {
       record(ev);
-      show(loc, false, `選到資料夾了（${ev.ms} 毫秒），但沒有寫入授權（${ev.requestResult}）`);
+      // 拖曳放下不算「使用者點擊」，Chrome 可能不讓這時候跳授權視窗：給一顆按鈕讓使用者點一下再要授權
+      const needClick = /SecurityError|activation|gesture/i.test(String(ev.requestResult));
+      show(loc, false, `拿到資料夾了，但還沒有寫入授權（${ev.requestResult}）`, needClick ? '<button id="grant-' + loc + '">允許寫入</button> 請按這顆按鈕，Chrome 問要不要允許編輯時按「允許」。' : '');
+      const btn = document.getElementById(`grant-${loc}`);
+      if (btn) btn.addEventListener('click', () => void useDir(loc, dir, { step: 'grant', loc, label: LOCS[loc] }));
       return;
     }
   }
@@ -318,6 +329,59 @@ async function checkStored(request) {
   }
 }
 
+// ---- 拖曳資料夾：不經過選取視窗，避開「選取視窗開著時頁面被判定看不見就取消」
+function setupDrop() {
+  const zone = $('drop');
+  zone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    zone.classList.add('over');
+  });
+  zone.addEventListener('dragleave', () => zone.classList.remove('over'));
+  zone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    zone.classList.remove('over');
+    const ev = { step: 'drop', loc: 'drop', label: LOCS.drop, atDrop: snap() };
+    const item = [...(e.dataTransfer?.items ?? [])].find((i) => i.kind === 'file');
+    if (!item || !item.getAsFileSystemHandle) {
+      ev.error = item ? '這個瀏覽器不支援 getAsFileSystemHandle' : '沒有拖進檔案或資料夾';
+      record(ev);
+      show('drop', false, ev.error);
+      return;
+    }
+    const pending = item.getAsFileSystemHandle(); // 一定要在 drop 事件裡同步呼叫，之後 dataTransfer 就失效
+    void (async () => {
+      try {
+        const h = await pending;
+        ev.handleKind = h?.kind;
+        if (h?.kind !== 'directory') {
+          ev.error = '拖進來的是檔案，不是資料夾';
+          record(ev);
+          show('drop', false, '拖進來的是檔案，請拖「資料夾」');
+          return;
+        }
+        await useDir('drop', h, ev);
+      } catch (x) {
+        ev.error = err(x);
+        ev.errorName = x?.name;
+        record(ev);
+        show('drop', false, ev.error);
+      }
+    })();
+  });
+}
+
+// 開頁時先提醒：這個瀏覽器以前選資料夾被 Chrome 自動取消過，就建議直接用拖曳
+function earlierHiddenCancel() {
+  try {
+    for (const k of Object.keys(localStorage)) {
+      if (!k.startsWith('smoke-log-')) continue;
+      const v = JSON.parse(localStorage.getItem(k));
+      if (v.events.some((e) => e.errorName === 'AbortError' && e.hiddenAtMs !== undefined)) return true;
+    }
+  } catch {}
+  return false;
+}
+
 // ---- 開始
 (async () => {
   try {
@@ -326,6 +390,8 @@ async function checkStored(request) {
   } catch {}
   $('ua').textContent = browser;
   $('env').textContent = envText();
+  setupDrop();
+  if (earlierHiddenCancel()) $('tip').textContent = '提醒：這個瀏覽器之前選資料夾時，選取視窗被 Chrome 自動取消過。建議直接用下面的「把資料夾拖進來」。';
   for (const b of document.querySelectorAll('button[data-cmp]')) b.addEventListener('click', () => void compare(b.dataset.cmp));
   if (!window.showDirectoryPicker) {
     record({ step: 'support', error: '沒有 showDirectoryPicker', env: ENV });
