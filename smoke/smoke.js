@@ -101,13 +101,27 @@ function snap() {
   const ua = navigator.userActivation;
   return { userActivationActive: ua?.isActive, userActivationEver: ua?.hasBeenActive, hasFocus: document.hasFocus(), visibility: document.visibilityState };
 }
+// 選取視窗開著的期間，記錄頁面何時失焦、何時被判定看不見（Chrome 視窗被整個蓋住或縮小時會變 hidden）
 function begin() {
-  return { t0: performance.now(), atClick: snap() };
+  const t0 = performance.now();
+  const timeline = [];
+  const on = (e) => timeline.push({ t: Math.round(performance.now() - t0), type: e.type, visibility: document.visibilityState });
+  for (const t of ['blur', 'focus']) window.addEventListener(t, on);
+  document.addEventListener('visibilitychange', on);
+  const stop = () => {
+    for (const t of ['blur', 'focus']) window.removeEventListener(t, on);
+    document.removeEventListener('visibilitychange', on);
+  };
+  return { t0, atClick: snap(), timeline, stop };
 }
 function finish(ev, b) {
   ev.ms = Math.round(performance.now() - b.t0);
   ev.atClick = b.atClick;
   ev.atEnd = snap();
+  b.stop();
+  ev.timeline = b.timeline;
+  const hidden = b.timeline.find((x) => x.type === 'visibilitychange' && x.visibility === 'hidden');
+  if (hidden) ev.hiddenAtMs = hidden.t;
 }
 const yn = (v) => (v === undefined ? '不明' : v ? '是' : '否');
 function envText() {
@@ -122,6 +136,7 @@ function clickText(ev) {
 function explain(ev, what) {
   const sec = (ev.ms / 1000).toFixed(1);
   const next = what.includes('資料夾視窗') ? '下一步：按下面的對照按鈕；若開檔視窗也一樣秒失敗，就是整個原生選取視窗被擋。' : '';
+  if (ev.errorName === 'AbortError' && ev.hiddenAtMs !== undefined && ev.hiddenAtMs <= ev.ms) return `${what}打開後第 ${(ev.hiddenAtMs / 1000).toFixed(1)} 秒，這個頁面被判定為「看不見」，接著 Chrome 就自動取消了選取（不是你按的取消）。最常見的原因是${what}是最大化的，把整個 Chrome 視窗蓋住。下一步：${what}出現時，先按它右上角的「向下還原」把它縮小（或按 Win＋↓），再選資料夾；Windows 會記住縮小後的大小，之後就不會再發生。`;
   if (ev.noDialog) return `按下 ${sec} 秒後頁面仍有焦點、也沒有任何回應，${what}應該根本沒出現（被瀏覽器或掛在上面的工具擋掉）。`;
   if (ev.errorName === 'AbortError' && ev.ms < FAST_MS) return `只過了 ${ev.ms} 毫秒就被取消，${what}應該根本沒出現：是瀏覽器或掛在瀏覽器上的工具（例如自動化或遠端操控的擴充功能）直接取消。${next}`;
   if (ev.errorName === 'AbortError') return `${what}出現約 ${sec} 秒後才取消：可能是按了取消、選到瀏覽器封鎖的資料夾（例如「下載」「文件」「桌面」本身或系統資料夾）後放棄，或在「允許編輯」時沒按允許。下一步：選這些資料夾底下的子資料夾，出現「允許編輯」時按允許。`;
@@ -133,10 +148,11 @@ function explain(ev, what) {
 // ---- 綜合判讀（各按鈕最近一次的結果）
 const latest = {};
 function note(key, ev) {
-  latest[key] = { ok: !ev.errorName, fast: !!ev.errorName && (ev.ms < FAST_MS || !!ev.noDialog), ms: ev.ms, name: ev.errorName };
+  latest[key] = { ok: !ev.errorName, fast: !!ev.errorName && (ev.ms < FAST_MS || !!ev.noDialog), hidden: !!ev.errorName && ev.hiddenAtMs !== undefined, ms: ev.ms, name: ev.errorName };
   const dirs = ['local', 'other', 'plain'].map((k) => latest[k]).filter(Boolean);
   const files = ['open', 'save'].map((k) => latest[k]).filter(Boolean);
   const lines = [];
+  if (Object.values(latest).some((r) => r.hidden)) lines.push('有選取視窗是在這個頁面被判定「看不見」之後才被取消：通常是選取視窗最大化、把 Chrome 整個蓋住，Chrome 就自動取消。請在選取視窗出現時先把它縮小（向下還原或 Win＋↓）再選。');
   if (dirs.some((r) => r.ok)) lines.push('選資料夾可以用。');
   else if (dirs.length) {
     const fast = dirs.every((r) => r.fast);
