@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>網頁版資料夾煙霧測試</title>
+<style>
+  body { font-family: system-ui, "Microsoft JhengHei", sans-serif; margin: 16px; max-width: 880px; line-height: 1.6; }
+  button { font-size: 16px; padding: 8px 14px; margin: 4px 8px 4px 0; }
+  .row { margin: 8px 0; }
+  .ok { color: #0a7a2f; font-weight: bold; }
+  .bad { color: #b42318; font-weight: bold; }
+  .note { color: #444; display: block; margin-left: 4px; }
+  #verdict { background: #fff8e1; border-left: 4px solid #f0b400; padding: 8px 12px; }
+  #verdict:empty { display: none; }
+  pre { background: #f5f5f5; padding: 8px; white-space: pre-wrap; font-size: 13px; max-height: 420px; overflow: auto; }
+  #sent, #env { color: #555; }
+</style>
+</head>
+<body>
+<h1>網頁版資料夾煙霧測試（包 19）</h1>
+<p>這頁只會在你選的資料夾裡建一個「調課小幫手煙霧測試」子資料夾，放兩個測試檔；不讀、不改其他檔案，也不會上傳任何內容（結果只送回這台電腦的測試伺服器）。</p>
+<p>瀏覽器：<b id="ua"></b></p>
+<p id="env"></p>
+
+<h2>選資料夾</h2>
+<div class="row"><button data-loc="local">選本機資料夾並讀寫</button> <span id="st-local"></span></div>
+<div class="row"><button data-loc="other">選另一個資料夾（例如雲端硬碟同步資料夾，可略過）</button> <span id="st-other"></span></div>
+<div class="row"><button data-loc="plain">最簡版選資料夾（不帶任何選項）</button> <span id="st-plain"></span></div>
+
+<h2>對照：其他選取視窗能不能開</h2>
+<p>這三顆只看視窗開不開得起來，不會讀你的檔案內容，也不會留下檔案。</p>
+<div class="row"><button data-cmp="open">開檔視窗（showOpenFilePicker）</button> <span id="st-open"></span></div>
+<div class="row"><button data-cmp="save">存檔視窗（showSaveFilePicker）</button> <span id="st-save"></span></div>
+<div class="row"><button data-cmp="input">舊式選資料夾（input webkitdirectory）</button> <span id="st-input"></span></div>
+<input type="file" id="dirInput" webkitdirectory hidden>
+
+<h2>判讀</h2>
+<p id="verdict"></p>
+
+<h2>關掉分頁再開之後</h2>
+<div class="row"><button id="again">再次允許</button> 畫面要你再允許時才按。</div>
+
+<p id="sent"></p>
+<details><summary>詳細結果</summary><pre id="log"></pre></details>
+<script type="module" src="smoke.js"></script>
+</body>
+</html>

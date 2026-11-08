@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>調課小幫手網頁版技術驗證</title>
+<style>
+  body { font-family: system-ui, "Microsoft JhengHei", sans-serif; margin: 16px; max-width: 960px; }
+  section { border: 1px solid #ccc; border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+  pre { background: #f5f5f5; padding: 8px; white-space: pre-wrap; max-height: 360px; overflow: auto; font-size: 13px; }
+  #update { background: #fff3c4; border: 1px solid #e0b400; padding: 8px; border-radius: 6px; }
+  #drop { border: 2px dashed #999; padding: 16px; text-align: center; }
+</style>
+</head>
+<body>
+<h1>調課小幫手網頁版技術驗證（包 19）</h1>
+<p>版本 <b id="version"></b>。只用合成學校資料，不含任何真實課表或姓名。</p>
+<div id="update" hidden>有新版，請重新整理。<button id="update-btn">重新整理</button></div>
+
+<section>
+  <h2>① 引擎與 HiGHS 在背景執行緒</h2>
+  <button id="run-engine">跑引擎比對</button>
+  <pre id="engine-log"></pre>
+</section>
+
+<section>
+  <h2>② 資料夾存取</h2>
+  <button id="pick">選資料夾並測試讀寫</button>
+  <button id="stored">檢查上次選的資料夾授權</button>
+  <button id="opfs">測試瀏覽器私有儲存區</button>
+  <div id="drop">也可以把資料夾拖到這裡</div>
+  <pre id="fsa-log"></pre>
+</section>
+
+<section>
+  <h2>③ 離線與新版提示</h2>
+  <p>第一次開啟後會把程式存進快取，斷網也能開；有新版時上方會出現提示。</p>
+</section>
+<script type="module" src="page.js"></script>
+</body>
+</html>
