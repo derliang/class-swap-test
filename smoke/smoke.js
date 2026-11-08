@@ -123,6 +123,13 @@ function finish(ev, b) {
   const hidden = b.timeline.find((x) => x.type === 'visibilitychange' && x.visibility === 'hidden');
   if (hidden) ev.hiddenAtMs = hidden.t;
 }
+// 白話時間線：選取視窗開著期間頁面發生了什麼（不含資料夾名稱或路徑）
+const TL = { blur: '頁面失去焦點（選取視窗打開）', focus: '頁面拿回焦點（選取視窗關閉）', visible: '頁面變回看得見', hidden: '頁面被判定看不見' };
+function timelineText(ev) {
+  const steps = (ev.timeline ?? []).map((x) => `${(x.t / 1000).toFixed(1)} 秒 ${x.type === 'visibilitychange' ? TL[x.visibility] : TL[x.type]}`);
+  steps.push(`${(ev.ms / 1000).toFixed(1)} 秒 Chrome 回報 ${ev.errorName ?? '成功'}${ev.error ? `（${ev.error.replace(/^[A-Za-z]+Error: /, '')}）` : ''}`);
+  return `經過：${steps.join(' → ')}。`;
+}
 const yn = (v) => (v === undefined ? '不明' : v ? '是' : '否');
 function envText() {
   return `環境：安全來源 ${yn(ENV.secureContext)}；在 iframe 裡 ${yn(ENV.inIframe)}；被自動化控制（webdriver）${yn(ENV.webdriver)}；螢幕 ${ENV.screen}。瀏覽器沒辦法直接判斷是否在遠端桌面裡。`;
@@ -139,7 +146,7 @@ function explain(ev, what) {
   if (ev.errorName === 'AbortError' && ev.hiddenAtMs !== undefined && ev.hiddenAtMs <= ev.ms) return `${what}打開後第 ${(ev.hiddenAtMs / 1000).toFixed(1)} 秒，這個頁面被判定為「看不見」，接著 Chrome 就自動取消了選取（不是你按的取消）。最常見的原因是${what}是最大化的，把整個 Chrome 視窗蓋住。下一步：${what}出現時，先按它右上角的「向下還原」把它縮小（或按 Win＋↓），再選資料夾；Windows 會記住縮小後的大小，之後就不會再發生。`;
   if (ev.noDialog) return `按下 ${sec} 秒後頁面仍有焦點、也沒有任何回應，${what}應該根本沒出現（被瀏覽器或掛在上面的工具擋掉）。`;
   if (ev.errorName === 'AbortError' && ev.ms < FAST_MS) return `只過了 ${ev.ms} 毫秒就被取消，${what}應該根本沒出現：是瀏覽器或掛在瀏覽器上的工具（例如自動化或遠端操控的擴充功能）直接取消。${next}`;
-  if (ev.errorName === 'AbortError') return `${what}出現約 ${sec} 秒後才取消：可能是按了取消、選到瀏覽器封鎖的資料夾（例如「下載」「文件」「桌面」本身或系統資料夾）後放棄，或在「允許編輯」時沒按允許。下一步：選這些資料夾底下的子資料夾，出現「允許編輯」時按允許。`;
+  if (ev.errorName === 'AbortError') return `按下後 ${sec} 秒 Chrome 回報取消（這個時間是實測的，頁面本身沒有任何逾時）。可能是：按了取消；選到 Chrome 封鎖的資料夾（例如「下載」「文件」「桌面」本身或系統資料夾）；在「允許編輯」時沒按允許；或選好後被 Chrome 擋下。請看下面的「經過」。`;
   if (ev.errorName === 'SecurityError') return `瀏覽器不讓這頁開${what}（${ev.ms} 毫秒）：通常是按下時沒有使用者點擊授權，或頁面不在安全來源。`;
   if (ev.errorName === 'NotAllowedError') return `瀏覽器拒絕授權（${ev.ms} 毫秒）：可能被設定或權限擋掉。`;
   return `失敗：${ev.error}（${ev.ms} 毫秒）。`;
@@ -181,7 +188,7 @@ async function pickAndTest(loc) {
     ev.errorName = e?.name;
     record(ev);
     note(loc, ev);
-    show(loc, false, e?.name === 'AbortError' ? '沒有選成' : ev.error, `${explain(ev, '選資料夾視窗')} ${clickText(ev)}`);
+    show(loc, false, e?.name === 'AbortError' ? '沒有選成' : ev.error, `${explain(ev, '選資料夾視窗')} ${timelineText(ev)} ${clickText(ev)}`);
     return;
   }
   note(loc, ev);
@@ -236,7 +243,7 @@ async function compare(kind) {
     finish(ev, b);
     ev.error = err(e);
     ev.errorName = e?.name;
-    show(kind, false, e?.name === 'AbortError' ? '沒有選成' : ev.error, `${explain(ev, `${CMPS[kind]}`)} ${clickText(ev)}`);
+    show(kind, false, e?.name === 'AbortError' ? '沒有選成' : ev.error, `${explain(ev, `${CMPS[kind]}`)} ${timelineText(ev)} ${clickText(ev)}`);
   };
   try {
     if (kind === 'open') {
